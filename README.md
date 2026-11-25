@@ -12,7 +12,7 @@ A hardware-level Finite State Machine (FSM) and combinational logic decoder impl
 - **FPGA & Discrete Logic Ready:** Synthesizable RTL verified via self-checking testbench; directly portable to FPGA development boards (e.g., Sipeed Tang Nano 9K) with a clock divider or discrete IC implementations.
 
 ### Truth Table & State Mapping
-![Truth Table and Segment Mapping](./images/truth_table.png)
+![Truth Table and Segment Mapping](./images/sheet.jpeg)
 
 ## Verification & Simulation
 The design is verified using a self-checking testbench compiled and executed via Icarus Verilog (`iverilog`):
