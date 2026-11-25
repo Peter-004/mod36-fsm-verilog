@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>16-Segment FSM Simulator (0–35 Mod-36 Counter)</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --led-on: #ff2a55;
+    --led-glow: rgba(255, 42, 85, 0.65);
+    --led-off: #273244;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body {
+    margin: 0; padding: 20px;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.5rem; }
+  p.sub { margin: 0 0 20px; color: var(--muted); font-size: 0.9rem; }
+  .layout {
+    display: grid; grid-template-columns: 360px 1fr; gap: 20px;
+    width: 100%; max-width: 1150px;
+  }
+  @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px;
+  }
+  .display-wrap {
+    display: flex; flex-direction: column; align-items: center;
+  }
+  svg#seg16 {
+    width: 220px; height: 320px;
+    background: #090d16; border-radius: 12px;
+    border: 2px solid #334155; padding: 14px;
+    box-shadow: inset 0 0 25px #000;
+  }
+  .seg {
+    fill: var(--led-off);
+    transition: fill 0.08s ease, filter 0.08s ease;
+  }
+  .seg.on {
+    fill: var(--led-on);
+    filter: drop-shadow(0 0 6px var(--led-glow));
+  }
+  .seg-label {
+    fill: #64748b; font-size: 8px; font-weight: bold;
+    pointer-events: none; user-select: none;
+  }
+  .state-readout {
+    margin-top: 14px; text-align: center; width: 100%;
+  }
+  .state-big {
+    font-size: 1.3rem; font-weight: 700; color: var(--accent);
+  }
+  .bits {
+    display: flex; justify-content: center; gap: 8px; margin-top: 10px;
+  }
+  .bit-box {
+    background: #0f172a; border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; text-align: center;
+  }
+  .bit-box span { display: block; font-size: 0.7rem; color: var(--muted); }
+  .bit-box strong { font-size: 1.1rem; color: #34d399; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin-top: 16px; width: 100%;
+  }
+  button {
+    background: #334155; color: var(--text); border: 1px solid #475569;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #475569; }
+  button.primary { background: #0284c7; border-color: #38bdf8; }
+  button.primary:hover { background: #0369a1; }
+  .speed-row {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px; font-size: 0.85rem; color: var(--muted);
+  }
+  .eq-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .eq-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  @media (max-width: 600px) { .eq-grid { grid-template-columns: 1fr; } }
+  .eq-item {
+    display: flex; align-items: center; gap: 8px;
+    background: #0f172a; padding: 6px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .eq-item.active-pin { border-color: var(--led-on); }
+  .pin-tag {
+    width: 28px; font-weight: 700; color: var(--accent); font-size: 0.9rem;
+  }
+  .eq-item input {
+    width: 100%; background: transparent; border: none; color: var(--text);
+    font-family: 'Consolas', monospace; font-size: 0.85rem; outline: none;
+  }
+  .pin-status {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--led-off);
+    flex-shrink: 0;
+  }
+  .eq-item.active-pin .pin-status {
+    background: var(--led-on); box-shadow: 0 0 6px var(--led-glow);
+  }
+  .legend {
+    margin-top: 12px; font-size: 0.8rem; color: var(--muted); line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<h1>16-Segment FSM Simulator (Hardcoded Mod-36 Up-Counter)</h1>
+<p class="sub">Counts States 0 → 35 (0–9, A–Z) and resets to 0 on the next clock edge using your Boolean equations.</p>
+
+<div class="layout">
+  <div class="card display-wrap">
+    <svg id="seg16" viewBox="0 0 200 300">
+      <polygon id="seg-a1" class="seg" points="24,14 96,14 88,26 32,26" />
+      <polygon id="seg-a2" class="seg" points="104,14 176,14 168,26 112,26" />
+      <polygon id="seg-f"  class="seg" points="16,22 28,30 28,138 16,146" />
+      <polygon id="seg-b"  class="seg" points="184,22 172,30 172,138 184,146" />
+      <polygon id="seg-h"  class="seg" points="36,34 48,34 86,126 86,138 74,138 36,46" />
+      <polygon id="seg-j"  class="seg" points="94,30 106,30 106,138 94,138" />
+      <polygon id="seg-k"  class="seg" points="164,34 152,34 114,126 114,138 126,138 164,46" />
+      <polygon id="seg-g1" class="seg" points="24,150 34,143 94,143 94,157 34,157" />
+      <polygon id="seg-g2" class="seg" points="176,150 166,143 106,143 106,157 166,157" />
+      <polygon id="seg-e"  class="seg" points="16,154 28,162 28,270 16,278" />
+      <polygon id="seg-c"  class="seg" points="184,154 172,162 172,270 184,278" />
+      <polygon id="seg-n"  class="seg" points="36,266 48,266 86,174 86,162 74,162 36,254" />
+      <polygon id="seg-m"  class="seg" points="94,162 106,162 106,270 94,270" />
+      <polygon id="seg-l"  class="seg" points="164,266 152,266 114,174 114,162 126,162 164,254" />
+      <polygon id="seg-d1" class="seg" points="24,286 96,286 88,274 32,274" />
+      <polygon id="seg-d2" class="seg" points="104,286 176,286 168,274 112,274" />
+
+      <text x="54" y="10" class="seg-label">a1</text>
+      <text x="134" y="10" class="seg-label">a2</text>
+      <text x="4" y="88" class="seg-label">f</text>
+      <text x="190" y="88" class="seg-label">b</text>
+      <text x="52" y="95" class="seg-label">h</text>
+      <text x="98" y="95" class="seg-label">j</text>
+      <text x="142" y="95" class="seg-label">k</text>
+      <text x="54" y="153" class="seg-label">g1</text>
+      <text x="134" y="153" class="seg-label">g2</text>
+      <text x="4" y="218" class="seg-label">e</text>
+      <text x="190" y="218" class="seg-label">c</text>
+      <text x="52" y="215" class="seg-label">n</text>
+      <text x="96" y="215" class="seg-label">m</text>
+      <text x="142" y="215" class="seg-label">l</text>
+      <text x="54" y="298" class="seg-label">d1</text>
+      <text x="134" y="298" class="seg-label">d2</text>
+    </svg>
+
+    <div class="state-readout">
+      <div class="state-big" id="stateLabel">State 0 (Char: 0)</div>
+      <div class="bits" id="bitsDisplay"></div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" id="playBtn">Pause</button>
+      <button id="stepBtn">Clock Edge (+1)</button>
+      <button id="resetBtn">Reset (0)</button>
+    </div>
+
+    <div class="speed-row">
+      <span>Clock Speed: <strong id="speedVal">600 ms</strong></span>
+      <input type="range" id="speedSlider" min="100" max="1500" step="100" value="600" />
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eq-header">
+      <strong>Pinout Decoder Logic Equations (Inputs: A, B, C, D, E, F)</strong>
+      <button id="restoreBtn" style="padding: 5px 10px; font-size: 0.8rem;">Restore Default</button>
+    </div>
+    <div class="eq-grid" id="eqGrid"></div>
+    <div class="legend">
+      <strong>Syntax Guide:</strong> Use variables <code>A B C D E F</code> (where <code>A</code>=MSB, <code>F</code>=LSB). 
+      Use <code>'</code> for NOT (e.g., <code>A'</code>), juxtaposition or <code>*</code> for AND (e.g., <code>CE'</code>), 
+      and <code>+</code> for OR. Type <code>1</code> or <code>0</code> to force a pin ON/OFF.
+    </div>
+  </div>
+</div>
+
+<script>
+  const CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const PINS = ["a1","a2","b","c","d1","d2","e","f","g1","g2","h","j","k","l","m","n"];
+
+  const DEFAULT_EQUATIONS = {
+    a1: "CE' + A'D'F' + B'DE + B'DF + D'EF",
+    a2: "CE' + A'D'F' + B'DE + B'DF + D'EF",
+    b:  "CD' + A'B'D' + BC'DE + BDEF' + BD'E'F + B'CE'F + B'C'E'F'",
+    c:  "BCF' + CD'F' + D'E'F' + A'B'D'F + BC'DE + BC'D'E' + B'CE'F + B'C'DF'",
+    d1: "BD'F' + CDF' + CE'F' + A'C'D'F' + B'DEF' + B'DE'F + B'D'EF + C'DE'F + C'D'EF",
+    d2: "BD'F' + B'CE' + CDF' + CE'F' + A'C'D'F' + B'DEF' + B'D'EF + C'DE'F",
+    e:  "BCD' + BC'D + BD'E' + B'CF' + CDE + D'E'F' + A'B'EF' + C'DE'F",
+    f:  "CF' + DF' + E'F' + BCE + BC'E' + BDE + CDE + CD'E'",
+    g1: "B'C'D + B'DE + A'B'C'E + BCD'F + BDE'F' + BD'E'F + B'CD'F' + CD'E'F",
+    g2: "A'B'E + B'CD' + CD'F + BC'D'E' + B'C'DF' + BCDE'F'",
+    h:  "AEF' + AE'F + BC'DE",
+    j:  "BC'D'E + CDE'F + B'CD'EF",
+    k:  "AE + AF + BC'DF' + B'C'DF + A'B'C'D'E' + BCDEF",
+    l:  "AE' + BCD'E + BC'DEF + BC'DE'F'",
+    m:  "AEF' + BC'D'E + CDE'F + B'CD'EF",
+    n:  "AF + BCDEF + B'C'DEF + B'C'D'E'F'"
+  };
+
+  let state = 0;
+  let playing = true;
+  let intervalMs = 600;
+  let timer = null;
+
+  const eqGrid = document.getElementById("eqGrid");
+  const inputsMap = {};
+  const rowMap = {};
+
+  PINS.forEach(pin => {
+    const row = document.createElement("div");
+    row.className = "eq-item";
+    row.innerHTML = `
+      <span class="pin-status"></span>
+      <span class="pin-tag">${pin}</span>
+      <input type="text" value="${DEFAULT_EQUATIONS[pin]}" spellcheck="false" />
+    `;
+    const inp = row.querySelector("input");
+    inp.addEventListener("input", render);
+    eqGrid.appendChild(row);
+    inputsMap[pin] = inp;
+    rowMap[pin] = row;
+  });
+
+  function evalExpr(expr, vars) {
+    const clean = expr.trim();
+    if (clean === "1") return true;
+    if (clean === "0" || clean === "") return false;
+    const products = clean.split("+");
+    for (let prod of products) {
+      prod = prod.replace(/\*/g, "").trim();
+      if (!prod) continue;
+      let termVal = true;
+      for (let i = 0; i < prod.length; i++) {
+        const ch = prod[i].toUpperCase();
+        if (!(ch in vars)) continue;
+        let bit = vars[ch];
+        if (prod[i + 1] === "'") {
+          bit = !bit;
+          i++;
+        }
+        if (!bit) { termVal = false; break; }
+      }
+      if (termVal) return true;
+    }
+    return false;
+  }
+
+  function render() {
+    const bin = state.toString(2).padStart(6, "0");
+    const vars = {
+      A: bin[0] === "1",
+      B: bin[1] === "1",
+      C: bin[2] === "1",
+      D: bin[3] === "1",
+      E: bin[4] === "1",
+      F: bin[5] === "1"
+    };
+
+    document.getElementById("stateLabel").textContent = `State ${state}  (Char: ${CHARS[state]})`;
+    document.getElementById("bitsDisplay").innerHTML = Object.entries(vars)
+      .map(([k, v]) => `<div class="bit-box"><span>${k}</span><strong>${v ? 1 : 0}</strong></div>`)
+      .join("");
+
+    PINS.forEach(pin => {
+      const isOn = evalExpr(inputsMap[pin].value, vars);
+      document.getElementById(`seg-${pin}`).classList.toggle("on", isOn);
+      rowMap[pin].classList.toggle("active-pin", isOn);
+    });
+  }
+
+  function nextClockEdge() {
+    state = (state >= 35) ? 0 : state + 1;
+    render();
+  }
+
+  function startLoop() {
+    clearInterval(timer);
+    if (playing) timer = setInterval(nextClockEdge, intervalMs);
+  }
+
+  document.getElementById("playBtn").addEventListener("click", (e) => {
+    playing = !playing;
+    e.target.textContent = playing ? "Pause" : "Play";
+    startLoop();
+  });
+
+  document.getElementById("stepBtn").addEventListener("click", () => {
+    nextClockEdge();
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    state = 0;
+    render();
+  });
+
+  document.getElementById("speedSlider").addEventListener("input", (e) => {
+    intervalMs = Number(e.target.value);
+    document.getElementById("speedVal").textContent = `${intervalMs} ms`;
+    startLoop();
+  });
+
+  document.getElementById("restoreBtn").addEventListener("click", () => {
+    PINS.forEach(pin => { inputsMap[pin].value = DEFAULT_EQUATIONS[pin]; });
+    render();
+  });
+
+  render();
+  startLoop();
+</script>
+</body>
+</html>
